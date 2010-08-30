@@ -77,9 +77,10 @@ class Jhead
     :comment
   ]
 
-  def initialize(pattern)
+  def initialize(pattern, match_opts = {})
     #TODO: should use @target = Dir[pattern]?
     @pattern = pattern
+    match(match_opts)
     yield self if block_given?
   end
 
@@ -98,8 +99,11 @@ class Jhead
   end
 
   def exif?
-    #TODO
-    true
+    #TODO could be better?
+    # Not good because it can rescues a file doesn't exist error.
+    unless many?
+      !Jhead.call("-exonly", "-c", @pattern).empty? rescue false
+    end
   end
 
   def many?
@@ -325,48 +329,218 @@ class Jhead
     self.rename(:format => format, :force => force)
   end
 
-  # TODO
+  # Adjust time stored in the Exif header by h:mm backwards or forwards.
+  # Useful when having taken pictures with the wrong time set on the camera,
+  # such as after travelling across time zones,
+  # or when daylight savings time has changed.
+  # This option uses the time from the "DateTimeOriginal" (tag 0x9003) field,
+  # but sets all the time fields in the Exif header to the new value.
+  #
+  # Examples:
+  # Adjust time one hour forward (you would use this
+  # after you forgot to set daylight savings time on the digicam)
+  #
+  #   jhead -ta+1:00 *.jpg
+  #
+  # Adjust time back by 23 seconds (you would use this to get the timestamps
+  # from two digicams in sync after you found that they didn't quite align)
+  #
+  #   jhead -ta-0:00:23 *.jpg
+  #
+  # Adjust time forward by 2 days and 1 hour (49 hours)
+  #
+  #   jhead -ta+49 *.jpg
   def adjust_time(timediff)
-    raise NotImplementedError
+    Jhead.call("-ta" << timediff, @pattern)
   end
 
-  # TODO
+  # Works like -ta, but for specifying large date offsets,
+  # to be used when fixing dates from cameras where
+  # the date was set incorrectly, such as having date and time
+  # reset by battery removal on some cameras. This feature is best for
+  # adjusting dates on pictures taken over a large range of dates.
+  # For pictures all taken the same date,
+  # the "-ds" option is often easier to use.
+  #
+  # Because different months and years have different numbers of days in them,
+  # a simple offset for months, days, years would lead
+  # to unexpected results at times. The time offset is thus specified
+  # as a difference between two dates, so that jhead can figure out
+  # exactly how many days the timestamp needs to be adjusted by,
+  # including leap years and daylight savings time changes.
+  # The dates are specified as yyyy:mm:dd. For sub-day adjustments,
+  # a time of day can also be included,
+  # by specifying yyyy:nn:dd/hh:mm or yyyy:mm:dd/hh:mm:ss
+  #
+  # Examples:
+  # Year on camera was set to 2005 instead of 2004 for pictures taken in April
+  #
+  #   jhead -da2005:03:01-2004:03:01
+  #
+  # Default camera date is 2002:01:01,
+  # and date was reset on 2005:05:29 at 11:21 am
+  #
+  #   jhead -da2005:05:29/11:21-2002:01:01
   def adjust_date(date1, date2)
-    raise NotImplementedError
+    Jhead.call("-da" << date1 << '-' << date2, @pattern)
   end
 
+  # Sets the date and time stored in the Exif header to what is specified
+  # on the command line. This option changes all the date fields
+  # in the Exif header.
   def date_time=(time)
     Jhead.call("-ts" << time.strftime("%Y:%m:%d-%H:%M:%S"), @pattern)
   end
 
-=begin
-    def year=(time)
-      if time.is_a? Time || time.is_a? Date # DateTime is a Date as well
-        Command.ds time.strftime("%Y")
-      else
-        Command.ds time
-      end
-    end
-
-    def year_month=(time)
-      Command.ds time.strftime("%Y:%m")
-    end
-
-    def year_month_day=(time)
-      Command.ds time.strftime("%Y:%m:%d")
-    end
-
-    def date=(yyyy, mm = nil, dd = nil)
-      Command.ds yyyy.to_s << case dd || mm || yyyy
-      when dd then "#{mm}:#{dd}" unless mm.nil?
-      when mm then ":#{mm}" else ""
-      end
-    end
-=end
+  # Sets the date stored in the Exif header to what is specified
+  # on the command line. Can be used to set date, just year and month,
+  # or just year. Date is specified as:
+  #   yyyy:mm:dd, yyyy:mm, or yyyy
+  #TODO -ds
 
   # THUMBNAIL MANIPULATION METHODS
 
-  #TODO
+  # Delete thumbnails from the Exif header, but leave
+  # the interesting parts intact. This option truncates the thumbnail
+  # from the Exif header, provided that the thumbnail is the last part
+  # of the Exif header (which so far as I know is always the case).
+  # Exif headers have a built-in thumbnail, which is typically 240x160
+  # and 10k in size. This thumbnail is used by digital cameras.
+  # Windows XP, as well as various photo viewing software may also use
+  # this thumbnail if present, but work just fine if it isn't.
+  def delete_thumbnails
+    Jhead.call("-dt", @pattern)
+  end
+
+  # Save the built in thumbnail from Jpegs that came from a digital camera.
+  # The thumbnail lives inside the Exif header,
+  # and is a very low-res JPEG image. Note that making any changes to a photo,
+  # except for with some programs, generally wipes out the Exif header
+  # and with it the thumbnail.
+  # I implemented this option because I kept getting asked
+  # about having such an option. I don't consider the built in thumbnails
+  # to be all that useful - too low res. However, now you can see for yourself.
+  # I always generate my thumbnails using ImageMagick (see end of this page).
+  # Like the transplant_exif method, this feature has
+  # the 'relative path' option for specifying the thumbnail name.
+  # Whenever the <name> contains the characters '&i',
+  # jhead will substitute the original filename for this name.
+  # This allows creating a 'relative name' when doing a whole batch of files.
+  # For example, the incantation:
+  #
+  #   jhead -st "thumbnails\&i" *.jpg
+  #
+  # would create a thumbnail for each .jpg file in the thumbnails directory by
+  # the same name, (provided that the thumbnails directory exists, of course).
+  # Both Win32 and most UNIX shells treat the '&' character in a special way,
+  # so you have to put quotes around that command line option for the '&'
+  # to even be passed to the program.
+  #
+  # (UNIX build only)
+  # If a '-' is specified for the output file, the thumbnail is sent to stdout.
+  def save_thumbnail(name)
+    Jhead.call("-st", name, @pattern)
+  end
+
+  # Replace thumbnails from the Exif header. This only works
+  # if the Exif header already contains an Exif header a thumbnail.
+  def replace_thumbnail(name)
+    Jhead.call("-rt", name, @pattern)
+  end
+
+  # Regnerate Exif thumbnail.
+  # 'size' specifies maximum height or width of thumbnail.
+  # I added this option because I had a lot of images that I had rotated
+  # with various tools that don't update the Exif header.
+  # But newer image browsers such as XnView make use of the Exif thumbnail,
+  # and so the thumbnails would be different from the image itself.
+  # Note that the rotation tag also needed to be cleared
+  # (clear_rotation method). Typically, only images that are shot
+  # in portrait orientation are afflicted with this.
+  # You can use the -orp option to tell jhead to only
+  # operate on images that are upright.
+  #
+  # This option relies on 'mogrify' program (from ImageMagick)
+  # to regenerate the thumbnail. Linux users often already have this tool
+  # pre-installed. Windows users have to go and download it.
+  # This option only works if the image already contains a thumbnail.
+  def regenerate_thumbnail(size = nil,
+                           clear_rot_tag = false,
+                           only_upright = false)
+    option = "-rgt"
+    option << size unless size.nil?
+    option << " -norot" if clear_rotation_tag
+    option << " -orp" if only_upright
+    Jhead.call(option, @pattern)
+  end
+
+  # ROTATION TAG MANIPULATION
+
+  # Using the 'Orientation' tag of the Exif header,
+  # rotate the image so that it is upright.
+  # The program 'jpegtran' is used to perform the rotation.
+  # This program is present in most Linux distributions.
+  # For windows, you need to get a copy of it. After rotation,
+  # the orientation tag of the Exif header is set to '1' (normal orientation).
+  # The Exif thumbnail is also rotated. Other fields of the Exif header,
+  # including dimensions are untouched, but the JPEG height/width are adjusted.
+  # This feature is especially useful with newer digital cameras,
+  # which set the orientation field in the Exif header automatically using
+  # a built in orientation sensor in the camera.
+  def auto_rotate
+    Jhead.call("-autorot", @pattern)
+  end
+
+  # Clears the Exif header rotation tag without altering the image.
+  # You may find that your images have rotation tags in them from your camera,
+  # but you already rotated them with some lossless tool
+  # without clearing the rotation tag. Now your friendly browser rotates
+  # the images on you again because the image rotation tag still indicates
+  # the image should be rotated. Use this method to fix this problem.
+  # You may also want to regenerate the thumbnail setting
+  # the regen_thumbnail option to true.
+  def clear_rotation_tag(regen_thumbnail = false)
+    option = "-norot"
+    option << " -rgt" if regen_thumbnail
+    Jhead.call(option, @pattern)
+  end
+
+  # FILE MATCHING AND SELECTION
+
+  # Match specific files according to the options hash.
+  # This should be set before executing an action method.
+  #
+  # * Set :model to a specific camera model to
+  # restrict processing of files to those whose camera model,
+  # as indicated by the Exif image information, contains the substring
+  # specified.
+  # For example, the following command will list
+  # only images that are from an S100 camera:
+  #
+  #   Jhead.new("*.jpg").match(:model => "S100").data
+  #
+  # I use this option to restrict my JPEG re-compressing to those images
+  # that came from my Canon S100 digicam, (see the -cmd option).
+  # TODO implement -cmd option?
+  # * Set :exif_only to true to
+  # skip all files that don't have an Exif header. This skips all files
+  # that did not come directly from the digital camera,
+  # as most photo editing software does not preserve the Exif header
+  # when saving pictures.
+  # * Set :portrait_only or :landscape_only to true to
+  # operate only on images with portrait or landscape aspect ratio.
+  # Please note that this is solely based on jpeg width and height values.
+  # Some browsers may auto rotate the image on displaying it based
+  # on the Exif orientation tag, so that images shot in portrait mode
+  # are displayed as portrait. However, the image itself may not be stored
+  # in portrait orientation. The auto_rotate and clear_rotation_tag methods
+  # are useful for dealing with rotation issues.
+  def match(opts)
+    @pattern = "-model #{opts[:model]} #{@pattern}" if opts.has_key? :model
+    @pattern = "-exonly #{@pattern}" if opts[:exif_only]
+    @pattern = "-orp #{@pattern}" if opts[:portrait_only]
+    @pattern = "-orl #{@pattern}" if opts[:landscape_only]
+  end
 
   private
 
