@@ -1,0 +1,29 @@
+= jhead-ruby
+
+*Under active development, not stable and not tested yet.*
+
+This lib is a wrapper for the jhead[http://www.sentex.ca/~mwandel/jhead/]
+command line tool, written by Matthias Wandel.
+http://www.sentex.ca/~mwandel/jhead/
+
+= Examples
+
+Get the EXIF Date/Time:
+
+  photo = Jhead.new("photo.jpg")
+  photo.date_time # => Fri Aug 27 15:53:53 1000 2010
+
+Set the EXIF Date/Time and change the file's system timestamp:
+
+  Jhead.new("photo.jpg") do |p|
+    p.date_time = Time.now
+    p.update_system_time_stamp
+  end
+
+Delete comments of severals JPEG files:
+
+  Jhead.new("Desktop/*.jpg").delete_comment
+
+= Author
+
+Vivien Didelot 'v0n' <vivien.didelot@gmail.com>
