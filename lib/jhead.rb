@@ -26,7 +26,7 @@ class Jhead
   end
 
   # This wrapper version.
-  VERSION = "0.0.1"
+  JHEAD_RUBY_VERSION = "0.0.1"
 
   # jhead binary
   JHEAD_BINARY = "jhead"
@@ -60,7 +60,7 @@ class Jhead
     :digital_zoom,
     :ccd_width,
     :exposure_time,
-    :apertude,
+    :aperture,
     :focus_dist,
     :iso_equiv,
     :exposure_bias,
@@ -78,9 +78,9 @@ class Jhead
   ]
 
   def initialize(pattern, match_opts = {})
-    #TODO: should use @target = Dir[pattern]?
+    #TODO should use @target = Dir[pattern]?
     @pattern = pattern
-    match(match_opts)
+    self.match(match_opts)
     yield self if block_given?
   end
 
@@ -162,7 +162,7 @@ class Jhead
   # so you have to put quotes around that command line option
   # for the '&' to even be passed to the program.
   def transplant_exif(name)
-    Jhead.call("-te", name, @pattern)
+    Jhead.call("-te", name.shellescape, @pattern)
   end
 
   # Delete comment field from the JPEG header.
@@ -215,17 +215,17 @@ class Jhead
 
   # Save comment section to a file.
   def save_comment(name)
-    Jhead.call("-cs", name, @pattern)
+    Jhead.call("-cs", name.shellescape, @pattern)
   end
 
   # Replace comment with text from file.
   def load_comment(name)
-    Jhead.call("-ci", name, @pattern)
+    Jhead.call("-ci", name.shellescape, @pattern)
   end
 
   # Replace comment with comment from command line.
   def comment=(comment)
-    Jhead.call("-cl", comment, @pattern)
+    Jhead.call("-cl", comment.shellescape, @pattern)
   end
 
   # DATE / TIME MANIPULATION METHODS
@@ -233,7 +233,7 @@ class Jhead
   # Sets the file's system time stamp to what is stored in the Exif header.
   def update_system_time_stamp
     out = Jhead.call("-ft", "-q", @pattern)
-    raise(JheadError, out) unless out.empty?
+    raise(JheadError.new, out) unless out.empty?
   end
 
   # Sets the Exif timestamp to the file's timestamp.
@@ -242,7 +242,7 @@ class Jhead
   def update_exif_time_stamp(mkexif = false)
     make_exif if mkexif # Good idea or not?
     out = Jhead.call("-dsft", "-q", @pattern)
-    raise(JheadError, out) unless out.empty?
+    raise(JheadError.new, out) unless out.empty?
   end
 
   # This method causes files to be renamed and/or moved
@@ -280,8 +280,7 @@ class Jhead
   # and sorted by name. Or you could use the update_system_time_stamp method
   # and view the images sorted by date. Typically, one of the carera's date
   # will be set not quite right, in which case you may have to use
-  # the -ta or -da options on those files first.
-  # TODO replace by corresponding method name
+  # the adjust_time or adjust_date methods on those files first.
   #
   # Some of the more useful arguments for strftime are:
   # %d  Day of month as decimal number (01 – 31)
@@ -307,7 +306,7 @@ class Jhead
   # macros in Windows batch files. You must use %% to get one %
   # passed to the program. So from a batch file,
   # you would have to write "files.rename("%%Y%%m%%d-%%H%%M%%S")
-  # TODO do this in Ruby?
+  #TODO do this in Ruby?
   # For a full listing of strftime arguments, look up the strftime C function.
   # Note that some arguments to the strftime function (not listed here)
   # produce strings with characters such as '/' and ':' that may not be valid
@@ -428,7 +427,7 @@ class Jhead
   # This allows creating a 'relative name' when doing a whole batch of files.
   # For example, the incantation:
   #
-  #   jhead -st "thumbnails\&i" *.jpg
+  #   Jhead.new("*.jpg").save_thumbnail("thumbnails\&i")
   #
   # would create a thumbnail for each .jpg file in the thumbnails directory by
   # the same name, (provided that the thumbnails directory exists, of course).
@@ -439,13 +438,13 @@ class Jhead
   # (UNIX build only)
   # If a '-' is specified for the output file, the thumbnail is sent to stdout.
   def save_thumbnail(name)
-    Jhead.call("-st", name, @pattern)
+    Jhead.call("-st", name.shellescape, @pattern)
   end
 
   # Replace thumbnails from the Exif header. This only works
   # if the Exif header already contains an Exif header a thumbnail.
   def replace_thumbnail(name)
-    Jhead.call("-rt", name, @pattern)
+    Jhead.call("-rt", name.shellescape, @pattern)
   end
 
   # Regnerate Exif thumbnail.
@@ -455,9 +454,9 @@ class Jhead
   # But newer image browsers such as XnView make use of the Exif thumbnail,
   # and so the thumbnails would be different from the image itself.
   # Note that the rotation tag also needed to be cleared
-  # (clear_rotation method). Typically, only images that are shot
+  # (clear_rotation_tag method). Typically, only images that are shot
   # in portrait orientation are afflicted with this.
-  # You can use the -orp option to tell jhead to only
+  # You can set the only_upright option to true to tell jhead to only
   # operate on images that are upright.
   #
   # This option relies on 'mogrify' program (from ImageMagick)
@@ -521,7 +520,7 @@ class Jhead
   #
   # I use this option to restrict my JPEG re-compressing to those images
   # that came from my Canon S100 digicam, (see the -cmd option).
-  # TODO implement -cmd option?
+  #TODO implement -cmd option?
   # * Set :exif_only to true to
   # skip all files that don't have an Exif header. This skips all files
   # that did not come directly from the digital camera,
@@ -536,6 +535,7 @@ class Jhead
   # in portrait orientation. The auto_rotate and clear_rotation_tag methods
   # are useful for dealing with rotation issues.
   def match(opts)
+    #TODO bad, because self.many? uses @pattern
     @pattern = "-model #{opts[:model]} #{@pattern}" if opts.has_key? :model
     @pattern = "-exonly #{@pattern}" if opts[:exif_only]
     @pattern = "-orp #{@pattern}" if opts[:portrait_only]
@@ -548,7 +548,7 @@ class Jhead
     tag = str.downcase.gsub(/[\s\/]/, '_').chomp('.').to_sym
     unless TAGS.include? tag
       # To avoid possibles mistakes between jhead output and the wrapper.
-      raise(JheadError, "Tag #{tag} (from #{str}) not valid.")
+      raise(JheadError.new, "Tag ':#{tag}' (from '#{str}') not valid.")
     end
     tag
   end
@@ -563,14 +563,10 @@ class Jhead
     end
   end
 
-  def escape(str)
-    "\"#{str}\""
-  end
-
   # test. Useful?
   def write_with_temp
     unless many?
-      #TODO. Bad, because cannot cp a file to *.jpg e.g.
+      #TODO Bad, because cannot cp a file to *.jpg e.g.
       # should use @target = Dir[pattern] in constructor.
       tempfile = Tempfile.new("jhead").path
       FileUtils.cp(@pattern, tempfile)
@@ -579,7 +575,7 @@ class Jhead
 
       unless tempfile == @pattern
         #TODO not this test. find another one.
-        raise(JheadError, "Writing went awry on temp file, cancelled.")
+        raise(JheadError.new, "Writing went awry on temp file, cancelled.")
       end
       FileUtils.cp(tempfile, @pattern)
     end

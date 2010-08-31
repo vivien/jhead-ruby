@@ -1,0 +1,9 @@
+81:    #TODO should use @target = Dir[pattern]?
+102:    #TODO could be better?
+113:  #TODO rename to self.exif or not? (<= remove filename, etc.)
+309:  #TODO do this in Ruby?
+398:  #TODO -ds
+523:  #TODO implement -cmd option?
+538:    #TODO bad, because self.many? uses @pattern
+569:      #TODO Bad, because cannot cp a file to *.jpg e.g.
+577:        #TODO not this test. find another one.
