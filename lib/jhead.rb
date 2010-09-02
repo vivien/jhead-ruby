@@ -79,7 +79,7 @@ class Jhead
 
   def initialize(pattern, match_opts = {})
     #TODO should use @target = Dir[pattern]?
-    @pattern = pattern
+    @target = @pattern = pattern
     self.match(match_opts)
     yield self if block_given?
   end
@@ -107,7 +107,7 @@ class Jhead
   end
 
   def many?
-    Dir[@pattern].size > 1
+    Dir[@target].size > 1
   end
 
   #TODO rename to self.exif or not? (<= remove filename, etc.)
