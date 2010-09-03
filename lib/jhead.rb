@@ -98,16 +98,16 @@ class Jhead
     super + TAGS.map { |t| t.to_s }
   end
 
+  def many?
+    Dir[@target].size > 1
+  end
+
   def exif?
     #TODO could be better?
     # Not good because it can rescues a file doesn't exist error.
     unless many?
       !Jhead.call("-exonly", "-c", @pattern).empty? rescue false
     end
-  end
-
-  def many?
-    Dir[@target].size > 1
   end
 
   #TODO rename to self.exif or not? (<= remove filename, etc.)
