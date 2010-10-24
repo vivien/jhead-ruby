@@ -122,11 +122,15 @@ class Jhead
 
   #TODO rename to self.exif or not? (<= remove filename, etc.)
   # Get all Jhead data from targeted file(s).
+  # It will return a hash of info for a single file or an array of hashes.
   def data
     data = Jhead.call(@match, @pattern).split("\n\n").map { |p| p.split("\n") }
     data.map! do |p|
       h = Hash.new
       p.each do |l|
+        # IMPROVE for the moment, ignore line:
+        # "======= IPTC data: =======" and its following lines.
+        break if l.first == "======= IPTC data: ======="
         if l =~ /(.+?)\s*:\s*(.+)/
           h[parse_tag $1] = parse_value $2
         end
