@@ -1,10 +1,10 @@
 = jhead-ruby
 
-== Warning: under active development, not stable and not tested yet.
+== Warning: under development, not stable and not tested yet.
 
 This lib is a wrapper for the jhead[http://www.sentex.ca/~mwandel/jhead/]
 command line tool, written by Matthias Wandel.
-http://www.sentex.ca/~mwandel/jhead/
+http://www.sentex.ca/~mwandel/jhead
 
 = Examples
 
