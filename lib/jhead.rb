@@ -77,10 +77,13 @@ class Jhead
     :comment
   ]
 
+  # Contructor.
+  # pattern should be the targeted file(s), e.g. "*.jpg".
+  # for matching options, see :match method.
   def initialize(pattern, match_opts = {})
-    #TODO should use @target = Dir[pattern]?
-    @target = @pattern = pattern
-    self.match(match_opts)
+    @pattern = pattern
+    @match = ""
+    self.match(match_opts) unless match_opts.empty?
     yield self if block_given?
   end
 
@@ -98,21 +101,29 @@ class Jhead
     super + TAGS.map { |t| t.to_s }
   end
 
-  def many?
-    Dir[@target].size > 1
+  # Get the count of targeted files.
+  def count
+    Jhead.call("-c", @match, @pattern).split("\n").size
   end
 
+  # Ask if there is more than one file.
+  def many?
+    count > 1
+  end
+
+  # Ask if file has exif data.
   def exif?
     #TODO could be better?
     # Not good because it can rescues a file doesn't exist error.
     unless many?
-      !Jhead.call("-exonly", "-c", @pattern).empty? rescue false
+      !Jhead.call("-exonly", "-c", @match, @pattern).empty? rescue false
     end
   end
 
   #TODO rename to self.exif or not? (<= remove filename, etc.)
+  # Get all Jhead data from targeted file(s).
   def data
-    data = Jhead.call(@pattern).split("\n\n").map { |p| p.split("\n") }
+    data = Jhead.call(@match, @pattern).split("\n\n").map { |p| p.split("\n") }
     data.map! do |p|
       h = Hash.new
       p.each do |l|
@@ -136,6 +147,7 @@ class Jhead
     self.resolution.last unless self.resolution.nil? || many?
   end
 
+  # Get a hash from the file.
   def to_hash
     data.merge(:width => width, :height => height) unless many?
   end
@@ -162,35 +174,35 @@ class Jhead
   # so you have to put quotes around that command line option
   # for the '&' to even be passed to the program.
   def transplant_exif(name)
-    Jhead.call("-te", name.shellescape, @pattern)
+    Jhead.call("-te", name.shellescape, @match, @pattern)
   end
 
   # Delete comment field from the JPEG header.
   # Note that the comment is not part of the Exif header.
   def delete_comment
-    Jhead.call("-dc", @pattern)
+    Jhead.call("-dc", @match, @pattern)
   end
 
   # Delete the Exif header entirely.
   # This leaves other sections (IPTC, XMP, comment) intact.
   def delete_exif
-    Jhead.call("-de", @pattern)
+    Jhead.call("-de", @match, @pattern)
   end
 
   # Delete IPTC section (if present). Leaves other sections intact.
   def delete_iptc
-    Jhead.call("-di", @pattern)
+    Jhead.call("-di", @match, @pattern)
   end
 
   # Delete XMP section (if present). Leaves other sections intact.
   def delete_xmp
-    Jhead.call("-dx", @pattern)
+    Jhead.call("-dx", @match, @pattern)
   end
 
   # Delete any sections that jhead doesn't know about.
   # Leaves Exif, XMP, IPTC and comment sections intact.
   def delete_unknown
-    Jhead.call("-du", @pattern)
+    Jhead.call("-du", @match, @pattern)
   end
 
   # Delete all JPEG sections that aren't necessary for rendering the image.
@@ -198,7 +210,7 @@ class Jhead
   # A combination of the delete_exif, delete_comment
   # and delete_unknown methods.
   def pure_jpg
-    Jhead.call("-purejpg", @pattern)
+    Jhead.call("-purejpg", @match, @pattern)
   end
 
   # Creates minimal Exif header.
@@ -210,29 +222,29 @@ class Jhead
   # and no other fields can be added to the Exif header this way.
   def make_exif(thumbnail = false)
     option = thumbnail ? "-mkexif -rgt" : "-mkexif"
-    Jhead.call(option, @pattern)
+    Jhead.call(option, @match, @pattern)
   end
 
   # Save comment section to a file.
   def save_comment(name)
-    Jhead.call("-cs", name.shellescape, @pattern)
+    Jhead.call("-cs", name.shellescape, @match, @pattern)
   end
 
   # Replace comment with text from file.
   def load_comment(name)
-    Jhead.call("-ci", name.shellescape, @pattern)
+    Jhead.call("-ci", name.shellescape, @match, @pattern)
   end
 
   # Replace comment with comment from command line.
   def comment=(comment)
-    Jhead.call("-cl", comment.shellescape, @pattern)
+    Jhead.call("-cl", comment.shellescape, @match, @pattern)
   end
 
   # DATE / TIME MANIPULATION METHODS
 
   # Sets the file's system time stamp to what is stored in the Exif header.
   def update_system_time_stamp
-    out = Jhead.call("-ft", "-q", @pattern)
+    out = Jhead.call("-ft", "-q", @match, @pattern)
     raise(JheadError.new, out) unless out.empty?
   end
 
@@ -241,7 +253,7 @@ class Jhead
   # set mkexif option to true to create one if needed.
   def update_exif_time_stamp(mkexif = false)
     make_exif if mkexif # Good idea or not?
-    out = Jhead.call("-dsft", "-q", @pattern)
+    out = Jhead.call("-dsft", "-q", @match, @pattern)
     raise(JheadError.new, out) unless out.empty?
   end
 
@@ -321,7 +333,7 @@ class Jhead
     option = arg[:force] ? "-nf" : "-n"
     option << arg[:format] unless arg[:format].nil?
     option << " -a" if arg[:extension]
-    Jhead.call(option, @pattern)
+    Jhead.call(option, @match, @pattern)
   end
 
   def rename_like(format = nil, force = false)
@@ -350,7 +362,7 @@ class Jhead
   #
   #   jhead -ta+49 *.jpg
   def adjust_time(timediff)
-    Jhead.call("-ta" << timediff, @pattern)
+    Jhead.call("-ta" << timediff, @match, @pattern)
   end
 
   # Works like -ta, but for specifying large date offsets,
@@ -381,14 +393,14 @@ class Jhead
   #
   #   jhead -da2005:05:29/11:21-2002:01:01
   def adjust_date(date1, date2)
-    Jhead.call("-da" << date1 << '-' << date2, @pattern)
+    Jhead.call("-da" << date1 << '-' << date2, @match, @pattern)
   end
 
   # Sets the date and time stored in the Exif header to what is specified
   # on the command line. This option changes all the date fields
   # in the Exif header.
   def date_time=(time)
-    Jhead.call("-ts" << time.strftime("%Y:%m:%d-%H:%M:%S"), @pattern)
+    Jhead.call("-ts" << time.strftime("%Y:%m:%d-%H:%M:%S"), @match, @pattern)
   end
 
   # Sets the date stored in the Exif header to what is specified
@@ -408,7 +420,7 @@ class Jhead
   # Windows XP, as well as various photo viewing software may also use
   # this thumbnail if present, but work just fine if it isn't.
   def delete_thumbnails
-    Jhead.call("-dt", @pattern)
+    Jhead.call("-dt", @match, @pattern)
   end
 
   # Save the built in thumbnail from Jpegs that came from a digital camera.
@@ -438,13 +450,13 @@ class Jhead
   # (UNIX build only)
   # If a '-' is specified for the output file, the thumbnail is sent to stdout.
   def save_thumbnail(name)
-    Jhead.call("-st", name.shellescape, @pattern)
+    Jhead.call("-st", name.shellescape, @match, @pattern)
   end
 
   # Replace thumbnails from the Exif header. This only works
   # if the Exif header already contains an Exif header a thumbnail.
   def replace_thumbnail(name)
-    Jhead.call("-rt", name.shellescape, @pattern)
+    Jhead.call("-rt", name.shellescape, @match, @pattern)
   end
 
   # Regnerate Exif thumbnail.
@@ -470,7 +482,7 @@ class Jhead
     option << size unless size.nil?
     option << " -norot" if clear_rotation_tag
     option << " -orp" if only_upright
-    Jhead.call(option, @pattern)
+    Jhead.call(option, @match, @pattern)
   end
 
   # ROTATION TAG MANIPULATION
@@ -487,7 +499,7 @@ class Jhead
   # which set the orientation field in the Exif header automatically using
   # a built in orientation sensor in the camera.
   def auto_rotate
-    Jhead.call("-autorot", @pattern)
+    Jhead.call("-autorot", @match, @pattern)
   end
 
   # Clears the Exif header rotation tag without altering the image.
@@ -501,7 +513,7 @@ class Jhead
   def clear_rotation_tag(regen_thumbnail = false)
     option = "-norot"
     option << " -rgt" if regen_thumbnail
-    Jhead.call(option, @pattern)
+    Jhead.call(option, @match, @pattern)
   end
 
   # FILE MATCHING AND SELECTION
@@ -535,11 +547,10 @@ class Jhead
   # in portrait orientation. The auto_rotate and clear_rotation_tag methods
   # are useful for dealing with rotation issues.
   def match(opts)
-    #TODO bad, because self.many? uses @pattern
-    @pattern = "-model #{opts[:model]} #{@pattern}" if opts.has_key? :model
-    @pattern = "-exonly #{@pattern}" if opts[:exif_only]
-    @pattern = "-orp #{@pattern}" if opts[:portrait_only]
-    @pattern = "-orl #{@pattern}" if opts[:landscape_only]
+    @match << " -model #{opts[:model]}" if opts.has_key? :model
+    @match << " -exonly" if opts[:exif_only]
+    @match << " -orp" if opts[:portrait_only]
+    @match << " -orl" if opts[:landscape_only]
   end
 
   private
@@ -567,7 +578,6 @@ class Jhead
   def write_with_temp
     unless many?
       #TODO Bad, because cannot cp a file to *.jpg e.g.
-      # should use @target = Dir[pattern] in constructor.
       tempfile = Tempfile.new("jhead").path
       FileUtils.cp(@pattern, tempfile)
 
