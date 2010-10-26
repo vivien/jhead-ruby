@@ -12,7 +12,7 @@ class Jhead_test < Test::Unit::TestCase
     @one_by_one    = Jhead.new f("1x1.jpg")
     @exif          = Jhead.new f("exif.jpg")
     @image         = Jhead.new f("image.jpg")
-    @multiple_app1 = Jhead.new f("multiple_app1.jpg")
+    @multiple_app1 = Jhead.new f("multiple-app1.jpg")
     @all           = Jhead.new f("*.jpg")
   end
 
