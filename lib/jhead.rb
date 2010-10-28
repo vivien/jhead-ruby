@@ -410,8 +410,20 @@ class Jhead
   # Sets the date stored in the Exif header to what is specified
   # on the command line. Can be used to set date, just year and month,
   # or just year. Date is specified as:
-  #   yyyy:mm:dd, yyyy:mm, or yyyy
-  #TODO -ds
+  #   :year => yyyy
+  # or
+  #   :year => yyyy, :month => mm
+  # or
+  #   :year => yyyy, :month => mm, :day => dd
+  #
+  # Example:
+  #   Jhead.new("pic01.jpg").set_date :year => 2010, :month => 10
+  def set_date(date)
+    param = date[:year]
+    param << ":" << date[:month] if date.key? :month
+    param << ":" << date[:day] if date.key? :day
+    Jhead.call("-ds" << param, @match, @pattern)
+  end
 
   # THUMBNAIL MANIPULATION METHODS
 
