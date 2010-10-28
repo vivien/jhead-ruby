@@ -355,27 +355,29 @@ class Jhead
   # Adjust time one hour forward (you would use this
   # after you forgot to set daylight savings time on the digicam)
   #
-  #   jhead -ta+1:00 *.jpg
+  #   Jhead.new("*.jpg").adjust_time("+1:00")
   #
   # Adjust time back by 23 seconds (you would use this to get the timestamps
   # from two digicams in sync after you found that they didn't quite align)
   #
-  #   jhead -ta-0:00:23 *.jpg
+  #   Jhead.new("*.jpg").adjust_time("-0:00:23")
   #
   # Adjust time forward by 2 days and 1 hour (49 hours)
   #
-  #   jhead -ta+49 *.jpg
+  #   Jhead.new("*.jpg").adjust_time("+49")
+  #
+  #IMPROVE find a better format for timediff parameter
   def adjust_time(timediff)
     Jhead.call("-ta" << timediff, @match, @pattern)
   end
 
-  # Works like -ta, but for specifying large date offsets,
+  # Works like :adjust_time, but for specifying large date offsets,
   # to be used when fixing dates from cameras where
   # the date was set incorrectly, such as having date and time
   # reset by battery removal on some cameras. This feature is best for
   # adjusting dates on pictures taken over a large range of dates.
   # For pictures all taken the same date,
-  # the "-ds" option is often easier to use.
+  # the :set_date method is often easier to use.
   #
   # Because different months and years have different numbers of days in them,
   # a simple offset for months, days, years would lead
@@ -385,17 +387,19 @@ class Jhead
   # including leap years and daylight savings time changes.
   # The dates are specified as yyyy:mm:dd. For sub-day adjustments,
   # a time of day can also be included,
-  # by specifying yyyy:nn:dd/hh:mm or yyyy:mm:dd/hh:mm:ss
+  # by specifying yyyy:mm:dd/hh:mm or yyyy:mm:dd/hh:mm:ss
   #
   # Examples:
   # Year on camera was set to 2005 instead of 2004 for pictures taken in April
   #
-  #   jhead -da2005:03:01-2004:03:01
+  #   adjust_date("2005:03:01", "2004:03:01")
   #
   # Default camera date is 2002:01:01,
   # and date was reset on 2005:05:29 at 11:21 am
   #
-  #   jhead -da2005:05:29/11:21-2002:01:01
+  #   adjust_date("2005:05:29/11:21", "2002:01:01")
+  #
+  #IMPROVE params syntax
   def adjust_date(date1, date2)
     Jhead.call("-da" << date1 << '-' << date2, @match, @pattern)
   end
@@ -464,8 +468,9 @@ class Jhead
   # to even be passed to the program.
   #
   # (UNIX build only)
-  # If a '-' is specified for the output file, the thumbnail is sent to stdout.
+  # If STDOUT is specified for the output file, the thumbnail is sent to stdout.
   def save_thumbnail(name)
+    name = "-" if name == STDOUT
     Jhead.call("-st", name.shellescape, @match, @pattern)
   end
 
@@ -547,8 +552,8 @@ class Jhead
   #   Jhead.new("*.jpg").match(:model => "S100").data
   #
   # I use this option to restrict my JPEG re-compressing to those images
-  # that came from my Canon S100 digicam, (see the -cmd option).
-  #TODO implement -cmd option?
+  # that came from my Canon S100 digicam, (see the :command method).
+  #
   # * Set :exif_only to true to
   # skip all files that don't have an Exif header. This skips all files
   # that did not come directly from the digital camera,
@@ -562,11 +567,46 @@ class Jhead
   # are displayed as portrait. However, the image itself may not be stored
   # in portrait orientation. The auto_rotate and clear_rotation_tag methods
   # are useful for dealing with rotation issues.
+  #
+  # IMPROVE avoid redondant options
   def match(opts)
-    @match << " -model #{opts[:model]}" if opts.has_key? :model
-    @match << " -exonly" if opts[:exif_only]
-    @match << " -orp" if opts[:portrait_only]
-    @match << " -orl" if opts[:landscape_only]
+    if opts.empty?
+      @match = ""
+    else
+      @match << " -model #{opts[:model]}" if opts.has_key? :model
+      @match << " -exonly" if opts[:exif_only]
+      @match << " -orp" if opts[:portrait_only]
+      @match << " -orl" if opts[:landscape_only]
+    end
+  end
+
+  # Executes the specified command on each JPEG file to be processed.
+  #
+  # The Exif section of each file is read before running the command,
+  # and reinserted after the command finishes.
+  #
+  # The  specified command invoked separately for each JPEG that is processed,
+  # even if multiple files are specified (explicitly or by wild card).
+  #
+  # Example use:
+  #
+  # Having a whole directory of photos from my S100,
+  # I run the following commands:
+  #
+  #   photos = Jhead.new "*.jpg", :model => "S100"
+  #   photos.command("mogrify -quality 80 &i")
+  #   photos.match {}
+  #   photos.command("jpegtran -progressive &i > &o")
+  #
+  # The first command mogrifies all JPEGs in the tree that indicate that
+  # they are from a Canon  S100 in their Exif header to 80% quality
+  # at the same resolution. This is a 'lossy' process,
+  # so I only run it on files that are from the Canon, and only run it once.
+  # The next command then takes a JPEGs and converts them to progressive JPEGs.
+  # The result is the same images, with no discernible differences,
+  # stored in half the space. This produces substantial savings on some cameras.
+  def command(cmd)
+    Jhead.call("-cmd", cmd, @match, @pattern)
   end
 
   private
