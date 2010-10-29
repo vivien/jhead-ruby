@@ -24,6 +24,11 @@ Delete comments of severals JPEG files:
 
   Jhead.new("Desktop/*.jpg").delete_comment
 
+= Bugs
+
+There's some known bugs about jhead.
+Please see jhead documentation (`man jhead' under Linux).
+
 = Author
 
 Vivien Didelot 'v0n' <vivien.didelot@gmail.com>

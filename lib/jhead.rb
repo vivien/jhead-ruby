@@ -1,3 +1,10 @@
+# -----------------------------------------------------------------------------
+# "THE BEER-WARE LICENSE" (Revision 42):
+# <vivien.didelot@gmail.com> wrote this file. As long as you retain this notice
+# you can do whatever you want with this stuff. If we meet some day, and you
+# think this stuff is worth it, you can buy me a beer in return. Vivien Didelot
+# -----------------------------------------------------------------------------
+#
 # This file is a wrapper for the jhead command line tool,
 # written by Matthias Wandel.
 # http://www.sentex.ca/~mwandel/jhead/
@@ -424,8 +431,10 @@ class Jhead
   #   Jhead.new("pic01.jpg").set_date :year => 2010, :month => 10
   def set_date(date)
     param = date[:year]
-    param << ":" << date[:month] if date.key? :month
-    param << ":" << date[:day] if date.key? :day
+    if date.key? :month
+      param << ":" << date[:month]
+      param << ":" << date[:day] if date.key? :day
+    end
     Jhead.call("-ds" << param, @match, @pattern)
   end
 
