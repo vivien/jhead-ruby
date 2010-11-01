@@ -137,7 +137,7 @@ class Jhead
       p.each do |l|
         # IMPROVE for the moment, ignore line:
         # "======= IPTC data: =======" and its following lines.
-        break if l.first == "======= IPTC data: ======="
+        break if l == "======= IPTC data: ======="
         if l =~ /(.+?)\s*:\s*(.+)/
           h[parse_tag $1] = parse_value $2
         end
