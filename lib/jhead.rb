@@ -135,7 +135,7 @@ class Jhead
     data.map! do |p|
       h = Hash.new
       p.each do |l|
-        # IMPROVE for the moment, ignore line:
+        #OPTIMIZE for the moment, ignore line:
         # "======= IPTC data: =======" and its following lines.
         break if l == "======= IPTC data: ======="
         if l =~ /(.+?)\s*:\s*(.+)/
