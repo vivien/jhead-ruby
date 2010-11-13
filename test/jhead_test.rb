@@ -44,29 +44,29 @@ class Jhead_test < Test::Unit::TestCase
     assert_equal "Here's a comment!", @image.data[:comment]
   end
 
-  def test_transplant_exif; end
-  def test_delete_comment; end
-  def test_delete_exif; end
-  def test_delete_iptc; end
-  def test_delete_xmp; end
-  def test_delete_unknow; end
-  def test_pure_jpg; end
-  def test_make_exif; end
-  def test_save_comment; end
-  def test_load_comment; end
-  def test_comment; end
-  def test_update_system_time_stamp; end
-  def test_update_exif_time_stamp; end
-  def test_rename; end
-  def test_adjust_time; end
-  def test_adjust_date; end
-  def test_date_time; end
-  def test_delete_thumbnails; end
-  def test_save_thumbnail; end
-  def test_replace_thumbnail; end
-  def test_regenerate_thumbnail; end
-  def test_autorotate; end
-  def test_clear_rotation_tag; end
-  def test_match; end
+  #def test_transplant_exif; end
+  #def test_delete_comment; end
+  #def test_delete_exif; end
+  #def test_delete_iptc; end
+  #def test_delete_xmp; end
+  #def test_delete_unknow; end
+  #def test_pure_jpg; end
+  #def test_make_exif; end
+  #def test_save_comment; end
+  #def test_load_comment; end
+  #def test_comment; end
+  #def test_update_system_time_stamp; end
+  #def test_update_exif_time_stamp; end
+  #def test_rename; end
+  #def test_adjust_time; end
+  #def test_adjust_date; end
+  #def test_date_time; end
+  #def test_delete_thumbnails; end
+  #def test_save_thumbnail; end
+  #def test_replace_thumbnail; end
+  #def test_regenerate_thumbnail; end
+  #def test_autorotate; end
+  #def test_clear_rotation_tag; end
+  #def test_match; end
 end
 
