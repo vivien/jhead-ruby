@@ -1,6 +1,12 @@
 = jhead-ruby
 
-== Warning: under development, not stable and not tested yet.
+== Warning: Not maintained anymore.
+
+I don't need jhead anymore.
+What jhead-ruby can do for the moment? Every reading/writing methods should work.
+It needs test cases, and small fixes on writing methods (see TODOs).
+
+= Presentation
 
 This lib is a wrapper for the jhead[http://www.sentex.ca/~mwandel/jhead/]
 command line tool, written by Matthias Wandel.
